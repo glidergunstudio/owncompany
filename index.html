@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Venture - 会社経営シミュレーション</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- ログイン -->
+<div id="login-screen">
+  <div class="login-logo">VENTURE</div>
+  <div style="font-size:0.68rem;color:var(--dim);letter-spacing:3px;margin-top:-14px">会社経営シミュレーション</div>
+  <div class="login-tagline">会社を立ち上げ、ヒト・モノ・カネを動かして<br>最強の企業を育てろ。</div>
+  <button class="login-btn" onclick="loginGoogle()"><img src="https://www.google.com/favicon.ico" width="20" height="20" style="margin-right:4px">Googleでログイン</button>
+  <button class="demo-btn" onclick="loginDemo()">デモモードで試す</button>
+</div>
+
+<!-- 会社設立 -->
+<div id="setup-screen">
+  <div class="setup-title">⚡ 会社設立</div>
+  <div class="setup-sub">あなたの会社を立ち上げよう</div>
+  <div class="setup-section">
+    <div class="setup-label">① 初期資金の調達方法</div>
+    <div class="fund-grid">
+      <div class="fund-card" id="fund-investor" onclick="selectFund('investor')">
+        <div class="fund-amount">¥5,000,000</div>
+        <div class="fund-name">💼 投資家あり</div>
+        <div class="fund-desc">大きく始められるが<br>投資家からの圧力あり</div>
+        <span class="fund-badge badge-investor">ハードモード</span>
+      </div>
+      <div class="fund-card" id="fund-self" onclick="selectFund('self')">
+        <div class="fund-amount">¥500,000</div>
+        <div class="fund-name">🪴 自己資金</div>
+        <div class="fund-desc">小さく始めるが<br>完全自由・プレッシャーなし</div>
+        <span class="fund-badge badge-free">フリーモード</span>
+      </div>
+    </div>
+  </div>
+  <div class="setup-section">
+    <div class="setup-label">② 業種を選択</div>
+    <div class="industry-grid" id="industry-grid"></div>
+  </div>
+  <div class="setup-section">
+    <div class="setup-label">③ 会社情報</div>
+    <input class="text-input" id="company-name" placeholder="会社名（例：東京テクノ株式会社）" maxlength="20">
+    <input class="text-input" id="ceo-name" placeholder="あなたの名前（CEO）" maxlength="10">
+  </div>
+  <div class="setup-section">
+    <div class="setup-label">④ CEOパラメータ（ランダム）</div>
+    <div class="ceo-param-box" id="ceo-param-box"></div>
+    <button class="reroll-btn" onclick="rerollCEO()">🎲 振り直す</button>
+  </div>
+  <div style="width:100%;max-width:420px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+    <input type="checkbox" id="debug-mode" style="width:16px;height:16px;cursor:pointer">
+    <label for="debug-mode" style="font-size:0.72rem;color:var(--orange);cursor:pointer">🐛 デバッグモード（資金・資源無制限）</label>
+  </div>
+  <button class="start-btn" onclick="startGame()">🚀 創業する</button>
+  <div style="height:20px"></div>
+</div>
+
+<!-- メインUI -->
+<div id="main-ui" style="display:none">
+  <div id="header">
+    <div class="company-badge"><div class="company-badge-name" id="h-company">---</div><div class="company-badge-type" id="h-industry">---</div></div>
+    <div class="hstat"><div class="hstat-label">💴資金</div><div class="hstat-value gld" id="h-money">-</div></div>
+    <div class="hstat"><div class="hstat-label">👥社員</div><div class="hstat-value" id="h-staff">0</div></div>
+    <div class="hstat"><div class="hstat-label">📅月</div><div class="hstat-value" id="h-month">1</div></div>
+    <div class="hstat"><div class="hstat-label">💸固定費</div><div class="hstat-value neg" id="h-salary">-</div></div>
+  </div>
+  <div id="map"></div>
+  <div id="log"></div>
+  <div id="investor-toast">
+    <div class="investor-msg">
+      <div class="investor-icon">📨</div>
+      <div class="investor-text">
+        <div class="investor-from">投資家 山田ベンチャーキャピタル</div>
+        <div class="investor-body" id="investor-msg-body"></div>
+      </div>
+      <button class="investor-close" onclick="closeInvestorToast()">✕</button>
+    </div>
+  </div>
+  <div id="bottom-nav">
+    <button class="nav-btn active" onclick="showPanel('map')" id="nav-map"><span class="nav-icon">🗺️</span>マップ</button>
+    <button class="nav-btn" onclick="showPanel('inventory')" id="nav-inventory"><span class="nav-icon">📦</span>在庫</button>
+    <button class="nav-btn" onclick="showPanel('staff')" id="nav-staff"><span class="nav-icon">👥</span>人材</button>
+    <button class="nav-btn" onclick="showPanel('market')" id="nav-market"><span class="nav-icon">📈</span>市場</button>
+    <button class="nav-btn" onclick="showPanel('equipment')" id="nav-equipment"><span class="nav-icon">🏭</span>設備</button>
+    <button class="nav-btn" onclick="showPanel('production')" id="nav-production"><span class="nav-icon">⚙️</span>生産</button>
+    <button class="nav-btn" onclick="showPanel('ranking')" id="nav-ranking"><span class="nav-icon">🏆</span>順位</button>
+  </div>
+</div>
+
+<!-- パネル群 -->
+<div class="panel" id="panel-inventory">
+  <div class="panel-handle"></div><div class="panel-title">📦 在庫</div>
+  <div class="section"><div class="sec-label">保有資源</div><div class="inv-grid" id="inv-resources"></div></div>
+  <div class="section"><div class="sec-label">製品在庫</div><div class="inv-grid" id="inv-products"></div></div>
+</div>
+<div class="panel" id="panel-staff">
+  <div class="panel-handle"></div>
+  <div class="panel-title">👥 人材 <span style="font-size:0.7rem;color:var(--dim)" id="staff-count-label"></span></div>
+  <div class="section" id="staff-list"></div>
+</div>
+<div class="panel" id="panel-market">
+  <div class="panel-handle"></div><div class="panel-title">📈 共通市場</div>
+  <div class="section" id="market-list"></div>
+</div>
+<div class="panel" id="panel-equipment">
+  <div class="panel-handle"></div>
+  <div class="panel-title">🏭 設備スロット</div>
+  <div class="section">
+    <div class="sec-label">⚡ 電気代（月次自動計算）</div>
+    <div id="electric-info" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:0.78rem;margin-bottom:8px">
+      生産設備の稼働と社員数に応じて月次に自動請求されます
+    </div>
+  </div>
+  <div class="section"><div class="sec-label">🏗️ 生産スロット</div><div id="slot-factory"></div></div>
+  <div class="section"><div class="sec-label">📦 保管スロット</div><div id="slot-storage"></div></div>
+</div>
+<div class="panel" id="panel-production">
+  <div class="panel-handle"></div><div class="panel-title">⚙️ 生産管理</div>
+  <div class="section"><div class="sec-label">生産キュー</div><div id="prod-queue"></div></div>
+  <div class="section"><div class="sec-label">レシピ一覧</div><div id="recipe-list"></div></div>
+</div>
+<div class="panel" id="panel-ranking">
+  <div class="panel-handle"></div><div class="panel-title">🏆 企業ランキング</div>
+  <div class="section" id="ranking-list"></div>
+</div>
+
+<!-- 説明会モーダル -->
+<div id="seminar-modal"><div class="seminar-box" id="seminar-content"></div></div>
+
+<!-- 月次決算 -->
+<div id="monthly-notice">
+  <div class="notice-title">📊 月次決算</div>
+  <div id="notice-content"></div>
+  <button class="notice-close" onclick="closeMonthly()">確認</button>
+</div>
+
+<!-- JS読み込み -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/map.js"></script>
+<script src="js/seminar.js"></script>
+<script src="js/market.js"></script>
+<script src="js/equipment.js"></script>
+<script src="js/tick.js"></script>
+<script src="js/setup.js"></script>
+</body>
+</html>
